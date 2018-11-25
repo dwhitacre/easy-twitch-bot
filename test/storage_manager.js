@@ -13,7 +13,7 @@ describe('storage_manager', () => {
     });
     it('should create a storage manager', () => {
       const sm = new StorageManager();
-      expect(sm._defaultStorage).to.equal('memory');
+      expect(sm._defaultStorageType).to.equal('memory');
       expect(sm._logEnabled).to.be.true;
       expect(sm._id).to.exist;
       expect(sm._storages).to.be.an.instanceof(Object);
@@ -23,7 +23,7 @@ describe('storage_manager', () => {
     it('should get the settings', () => {
       const sm = new StorageManager();
       const settings = sm.getSettings();
-      expect(settings.defaultStorage).to.equal('memory');
+      expect(settings.defaultStorageType).to.equal('memory');
       expect(settings.logEnabled).to.be.true;
     });
   });
@@ -74,7 +74,7 @@ describe('storage_manager', () => {
       expect(sm._storages['storage']).to.be.an.instanceof(Memory);
     });
     it('should do nothing if default storage type dne', () => {
-      sm._defaultStorage = 'nope';
+      sm._defaultStorageType = 'nope';
       sm.add('storage');
       expect(sm._storages['storage']).to.be.undefined;
     });
