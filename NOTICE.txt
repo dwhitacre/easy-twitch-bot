@@ -1,0 +1,7 @@
+Do not use this twitch bot framework to build a bot that harasses broadcasters, viewers, moderators, or other twitch personnel.
+
+Do not use this twitch bot framework in a broadcaster's channel without the explicit permission of the broadcaster.
+
+Do not use this twitch bot framework in anyway that breaks the Twitch TOS.
+
+I am not responsible for bots created via this framework, and cannot be held accountable for their implementations.
