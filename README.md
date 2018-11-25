@@ -280,7 +280,7 @@ To be passed into the constructor. The `twitchClient` and `hapiServer` are dynam
     logEnabled: <boolean, log messages for the rbac, default true>
   },
   storageManager: {
-    defaultStorage: <string alphanum max500, the storage to use by default when its not specified, default memory>,
+    defaultStorageType: <string alphanum max500, the storage type to use by default when its not specified, default memory>,
     logEnabled: <boolean, log messages for the storage manager, default true>
   }
 }

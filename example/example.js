@@ -16,7 +16,7 @@ const easyBot = new EasyTwitchBot({
     channels: ['danonthemoon']
   },
   storageManager: {
-    defaultStorage: 'memory'
+    defaultStorageType: 'memory'
   }
   //rbac: { enabled: false }
 });
