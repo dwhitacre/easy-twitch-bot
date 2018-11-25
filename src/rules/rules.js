@@ -1,8 +1,10 @@
 const Rule = require('./rule');
 
 class Rules {
-  constructor() {
+  constructor(parent) {
     this._rules = [];
+
+    this._parent = parent;
   }
 
   add(ruleDef) {

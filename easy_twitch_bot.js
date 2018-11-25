@@ -1,3 +1,6 @@
+const Joi = require('joi');
+
+const { internalStorage: internalStorageSchema } = require('./src/schema');
 const TwitchClient = require('./src/twitch_client/twitch_client');
 const HapiServer = require('./src/hapi_server/hapi_server');
 const Rules = require('./src/rules/rules');
@@ -5,12 +8,20 @@ const RBAC = require('./src/rbac/rbac');
 const StorageManager = require('./src/storage_manager/storage_manager');
 
 class EasyTwitchBot {
-  constructor({ twitchClient, hapiServer, rbac, storageManager }) {
+  constructor({ twitchClient, hapiServer, rbac, storageManager, internalStorage }) {
+    this._storageManager = new StorageManager(storageManager, this);
+
+    const { error, value } = Joi.validate(internalStorage, internalStorageSchema);
+    if (error) throw error;
+
+    this.storageManager.add(value.name, value.type, value.def);
+    this._internalStorage = value.name;
+
     this._twitchClient = new TwitchClient(twitchClient, this);
     this._hapiServer = new HapiServer(hapiServer, this);
-    this._rules = new Rules();
-    this._rbac = new RBAC(rbac);
-    this._storageManager = new StorageManager(storageManager);
+    this._rules = new Rules(this);
+    this._rbac = new RBAC(rbac, this);
+    this._storageManager = new StorageManager(storageManager, this);
   }
 
   getSettings() {
@@ -45,6 +56,10 @@ class EasyTwitchBot {
   async stop() {
     await this._twitchClient.stop();
     await this._hapiServer.stop();
+  }
+
+  get internalStorage() {
+    return this._internalStorage;
   }
 
   get twitchClient() {

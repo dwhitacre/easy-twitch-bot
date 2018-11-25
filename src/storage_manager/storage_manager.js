@@ -8,7 +8,7 @@ const log = require('../log');
 const from = 'storage_manager';
 
 class StorageManager {
-  constructor(settings) {
+  constructor(settings, parent) {
     const { error, value } = Joi.validate(settings, schema);
     if (error) throw error;
 
@@ -21,6 +21,8 @@ class StorageManager {
 
     // implementation
     this._storages = {};
+
+    this._parent = parent;
   }
 
   getSettings() {

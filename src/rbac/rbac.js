@@ -9,7 +9,7 @@ const log = require('../log');
 const from = 'rbac';
 
 class RBAC {
-  constructor(settings) {
+  constructor(settings, parent) {
     const { error, value } = Joi.validate(settings, schema);
     if (error) throw error;
 
@@ -25,6 +25,8 @@ class RBAC {
     this._roles = {};
     this._users = {};
     this._tokens = {};
+
+    this._parent = parent;
   }
 
   getSettings() {

@@ -183,6 +183,10 @@ class HapiServer {
     };
     log(message, this._logEnabled);
   }
+
+  _load() {
+    
+  }
 }
 
 module.exports = HapiServer;
