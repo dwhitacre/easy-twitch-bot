@@ -13,7 +13,7 @@ class StorageManager {
     if (error) throw error;
 
     // settings
-    this._defaultStorage = value.defaultStorage;
+    this._defaultStorageType = value.defaultStorageType;
     this._logEnabled = value.logEnabled;
 
     // state
@@ -25,7 +25,7 @@ class StorageManager {
 
   getSettings() {
     return {
-      defaultStorage: this._defaultStorage,
+      defaultStorageType: this._defaultStorageType,
       logEnabled: this._logEnabled
     };
   }
@@ -34,7 +34,7 @@ class StorageManager {
     const { error, value } = Joi.validate(settings, schema);
     if (error) throw error;
 
-    this._defaultStorage = value.defaultStorage;
+    this._defaultStorageType = value.defaultStorageType;
     this._logEnabled = value.logEnabled;
   }
 
@@ -44,7 +44,7 @@ class StorageManager {
     };
   }
 
-  add(storageName, storageType = this._defaultStorage, storageDef) {
+  add(storageName, storageType = this._defaultStorageType, storageDef) {
     if (typeof storageName === 'undefined') throw new Error('storageName must be defined');
 
     if (storageType === 'memory') {
