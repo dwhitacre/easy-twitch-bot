@@ -613,6 +613,8 @@ If you wish to contribute please contact me first. The best way to contact me is
 
 ### Development
 
+`npm i`
+
 `npm start` runs `example/watch.js` watching the src code for changes. It just starts up a basic example of the bot. Must set `TWITCH_USERNAME` and `TWITCH_TOKEN` env vars for the bot to use.
 
 `npm run test` to run the tests.
