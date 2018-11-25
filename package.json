@@ -1,6 +1,6 @@
 {
   "name": "easy-twitch-bot",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Extendable PnP rule based twitch bot framework",
   "main": "easy_twitch_bot.js",
   "scripts": {
