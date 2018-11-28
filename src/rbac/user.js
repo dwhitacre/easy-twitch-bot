@@ -9,7 +9,7 @@ class User {
     if (error) throw error;
 
     this._name = value.name;
-    this._role = value.role;
+    this._roles = value.roles;
     this._token = uniqid();
   }
 
@@ -17,8 +17,8 @@ class User {
     return this._name;
   }
 
-  get role() {
-    return this._role;
+  get roles() {
+    return this._roles;
   }
 
   get token() {
