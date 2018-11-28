@@ -1,10 +1,11 @@
 const Joi = require('joi');
 
 const roleName = Joi.string().alphanum().max(500);
+const roleNames = Joi.array().items(roleName);
 const userName = Joi.string().max(500);
 
 const enabled = Joi.boolean().default(true);
-const defaultRole = Joi.string().alphanum().max(500).default('default');
+const defaultRole = Joi.array().items(roleName).single().max(500).default(['default']);
 const logEnabled = Joi.boolean().default(true);
 
 const rbac = Joi.object().keys({
@@ -25,7 +26,7 @@ roleName.required();
 
 const user = Joi.object().keys({
   name: userName,
-  role: roleName
+  roles: roleNames
 });
 
 module.exports = { rbac, role, user, userName, roleName };

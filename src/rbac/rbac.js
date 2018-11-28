@@ -78,8 +78,10 @@ class RBAC {
 
     for (let u in this._users) {
       const user = this.getUser(u);
-      if (user.role === roleName) {
-        this.rmUser(user.name);
+      const roles = user.roles;
+      if (roles.indexOf(roleName) > -1) {
+        const newRoles = roles.filter(role => role !== roleName);
+        newRoles.length === 0 ? this.rmUser(user.name) : this.editUser(u, newRoles);
       }
     }
 
@@ -106,17 +108,21 @@ class RBAC {
     });
   }
 
-  addUser(userName, roleName) {
+  addUser(userName, roleNames) {
     if (this.getUser(userName)) throw new Error(`user already exists with username: ${userName}`);
 
-    if (!this.getRole(roleName)) throw new Error(`role doesnt exist: ${roleName}`);
+    if (!(roleNames instanceof Array)) throw new Error(`roles must be an array`);
+
+    roleNames.forEach(roleName => {
+      if (!this.getRole(roleName)) throw new Error(`role doesnt exist: ${roleName}`);
+    })
 
     const { error, value } = Joi.validate(userName, userNameSchema);
     if (error) throw error;
 
     const user = new User({
       name: value,
-      role: roleName
+      roles: roleNames
     });
 
     this._tokens[user.token] = user.name;
@@ -146,9 +152,9 @@ class RBAC {
     delete this._users[user.name];
   }
 
-  editUser(userName, roleName) {
+  editUser(userName, roleNames) {
     this.rmUser(userName);
-    this.addUser(userName, roleName);
+    this.addUser(userName, roleNames);
   }
 
   clear() {
@@ -162,11 +168,15 @@ class RBAC {
 
     const user = this.getUser(userName);
 
-    const userRoleName = user ? user.role : this._defaultRole;
-    const userRole = this.getRole(userRoleName);
-    if (!userRole) return false;
+    const userRoleNames = user ? user.roles : this._defaultRole;
 
-    return this.checkRole(userRoleName, action);
+    for (var i = 0; i < userRoleNames.length; i++) {
+      var userRoleName = userRoleNames[i];
+      var userRole = this.getRole(userRoleName);
+      if (!userRole) return false;
+      if (this.checkRole(userRoleName, action)) return true;
+    }
+    return false;
   }
 
   _log(message) {
