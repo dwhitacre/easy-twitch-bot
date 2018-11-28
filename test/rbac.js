@@ -109,16 +109,18 @@ describe('rbac', () => {
       rbac._roles['role'] = new Role();
       rbac._users['user'] = new User({
         name: 'user',
-        role: 'role'
+        roles: ['role']
       });
       rbac._users['nope'] = new User({
         name: 'nope',
-        role: 'nope'
+        roles: ['nope']
       })
       rbac.rmRole('role');
       expect(Object.keys(rbac._users)).to.have.length(1);
       expect(rbac._users['user']).to.be.undefined;
-      expect(rbac._users['nope'].role).to.equal('nope');
+      expect(rbac._users['nope'].roles).to.be.an('array');
+      expect(rbac._users['nope'].roles).to.have.length(1);
+      expect(rbac._users['nope'].roles[0]).to.equal('nope');
     });
     it('should remove the role', () => {
       rbac._roles['role'] = new Role();
@@ -220,7 +222,7 @@ describe('rbac', () => {
     it('should throw err if user already exists', () => {
       rbac._users['user'] = new User({
         name: 'user',
-        role: 'role'  
+        roles: ['role']  
       });
       expect(() => rbac.addUser('user', 'role')).to.throw();
     });
@@ -231,12 +233,14 @@ describe('rbac', () => {
       expect(() => rbac.addUser(234, 'role')).to.throw();
     });
     it('should add the user', () => {
-      rbac.addUser('user', 'role');
+      rbac.addUser('user', ['role']);
       expect(rbac._users['user']).to.exist;
-      expect(rbac._users['user'].role).to.equal('role');
+      expect(rbac._users['user'].roles).to.be.an('array');
+      expect(rbac._users['user'].roles).to.have.length(1);
+      expect(rbac._users['user'].roles[0]).to.equal('role');
     });
     it('should add token and user to tokens', () => {
-      rbac.addUser('user', 'role');
+      rbac.addUser('user', ['role']);
       const user = rbac._users['user'];
       expect(rbac._tokens[user.token]).to.not.be.undefined;
       expect(rbac._tokens[user.token]).to.equal(user.name);
@@ -252,20 +256,24 @@ describe('rbac', () => {
     it('should get the user when given name', () => {
       rbac._users['user'] = new User({
         name: 'user',
-        role: 'role'
+        roles: ['role']
       });
       expect(rbac.getUser('user').name).to.equal('user');
-      expect(rbac.getUser('user').role).to.equal('role');
+      expect(rbac.getUser('user').roles).to.be.an('array');
+      expect(rbac.getUser('user').roles).to.have.length(1);
+      expect(rbac.getUser('user').roles[0]).to.equal('role');
     });
     it('should get the user when given token', () => {
       rbac._users['user'] = new User({
         name: 'user',
-        role: 'role'
+        roles: ['role']
       });
       const token = rbac._users['user'].token;
       rbac._tokens[token] = 'user';
       expect(rbac.getUser(token).name).to.equal('user');
-      expect(rbac.getUser(token).role).to.equal('role');
+      expect(rbac.getUser(token).roles).to.be.an('array');
+      expect(rbac.getUser(token).roles).to.have.length(1);
+      expect(rbac.getUser(token).roles[0]).to.equal('role');
     });
   });
   describe('.rmUser', () => {
@@ -278,7 +286,7 @@ describe('rbac', () => {
     it('should do nothing if the user does not exist', () => {
       rbac._users['user'] = new User({
         name: 'user',
-        role: 'role'
+        roles: ['role']
       });
       rbac.rmUser('nope');
       expect(Object.keys(rbac._users)).to.have.length(1);
@@ -286,7 +294,7 @@ describe('rbac', () => {
     it('should remove the user', () => {
       rbac._users['user'] = new User({
         name: 'user',
-        role: 'role'
+        roles: ['role']
       });
       rbac.rmUser('user');
       expect(Object.keys(rbac._users)).to.have.length(0);
@@ -295,7 +303,7 @@ describe('rbac', () => {
     it('should remove the token', () => {
       rbac._users['user'] = new User({
         name: 'user',
-        role: 'role'
+        roles: ['role']
       });
       const token = rbac._users['user'].token;
       rbac._tokens[token] = 'user';
@@ -314,11 +322,13 @@ describe('rbac', () => {
     it('should edit the users role', () => {
       rbac._users['user'] = new User({
         name: 'user',
-        role: 'role'
+        roles: ['role']
       });
       rbac._roles['cool'] = new Role();
-      rbac.editUser('user', 'cool');
-      expect(rbac._users['user'].role).to.equal('cool');
+      rbac.editUser('user', ['cool']);
+      expect(rbac.getUser('user').roles).to.be.an('array');
+      expect(rbac.getUser('user').roles).to.have.length(1);
+      expect(rbac.getUser('user').roles[0]).to.equal('cool');
     });
   });
   describe('.clear', () => {
@@ -331,7 +341,7 @@ describe('rbac', () => {
     it('should clear both the roles and users', () => {
       rbac._users['user'] = new User({
         name: 'user',
-        role: 'role'
+        roles: ['role']
       });
       rbac._roles['cool'] = new Role();
       rbac.clear();
@@ -364,14 +374,14 @@ describe('rbac', () => {
     it('should ret false if the role does not exist for the user', () => {
       rbac._users['user'] = new User({
         name: 'user',
-        role: 'role'
+        roles: ['role']
       });
       expect(rbac.check('user', 'action')).to.be.false;
     });
     it('should ret false if the users role does not have the action', () => {
       rbac._users['user'] = new User({
         name: 'user',
-        role: 'role'
+        roles: ['role']
       });
       rbac._roles['role'] = new Role();
       expect(rbac.check('user', 'action')).to.be.false;
@@ -379,7 +389,7 @@ describe('rbac', () => {
     it('should ret true if the users role does have the action', () => {
       rbac._users['user'] = new User({
         name: 'user',
-        role: 'role'
+        roles: ['role']
       });
       rbac._roles['role'] = new Role({
         can: [ 'action' ]
@@ -390,7 +400,7 @@ describe('rbac', () => {
       rbac._enabled = false;
       rbac._users['user'] = new User({
         name: 'user',
-        role: 'role'
+        roles: ['role']
       });
       expect(rbac.check('user', 'action')).to.be.true;
     });
