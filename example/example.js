@@ -29,7 +29,7 @@ easyBot.rbac.addRole('admin', {
 easyBot.rbac.addRole('default', {
   can: [ 'e', 'devmoon', 'devearth', 'devdan' ]
 });
-easyBot.rbac.addUser('danonthemoon', 'admin');
+easyBot.rbac.addUser('danonthemoon', ['admin']);
 easyBot.addRule({
   name: 'echo',
   aliases: 'e',

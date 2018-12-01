@@ -1,7 +1,7 @@
 const Joi = require('joi');
 const uuid = require('uuid');
 
-const { rbac: schema, userName: userNameSchema, roleName: roleNameSchema } = require('./schema');
+const { rbac: schema, roleName: roleNameSchema, user: userSchema } = require('./schema');
 const Role = require('./role');
 const User = require('./user');
 const log = require('../log');
@@ -79,9 +79,10 @@ class RBAC {
     for (let u in this._users) {
       const user = this.getUser(u);
       const roles = user.roles;
-      if (roles.indexOf(roleName) > -1) {
-        const newRoles = roles.filter(role => role !== roleName);
-        newRoles.length === 0 ? this.rmUser(user.name) : this.editUser(u, newRoles);
+      const i = roles.indexOf(roleName);
+      if (i > -1) {
+        roles.splice(i, 1);
+        if (roles.length === 0) this.rmUser(user.name);
       }
     }
 
@@ -109,20 +110,18 @@ class RBAC {
   }
 
   addUser(userName, roleNames) {
-    if (this.getUser(userName)) throw new Error(`user already exists with username: ${userName}`);
+    const { error, value } = Joi.validate({name: userName, roles: roleNames}, userSchema);
+    if (error) throw error;
 
-    if (!(roleNames instanceof Array)) throw new Error(`roles must be an array`);
+    if (this.getUser(userName)) throw new Error(`user already exists with username: ${userName}`);
 
     roleNames.forEach(roleName => {
       if (!this.getRole(roleName)) throw new Error(`role doesnt exist: ${roleName}`);
-    })
-
-    const { error, value } = Joi.validate(userName, userNameSchema);
-    if (error) throw error;
+    });
 
     const user = new User({
-      name: value,
-      roles: roleNames
+      name: value.name,
+      roles: value.roles
     });
 
     this._tokens[user.token] = user.name;
@@ -170,13 +169,9 @@ class RBAC {
 
     const userRoleNames = user ? user.roles : this._defaultRole;
 
-    for (var i = 0; i < userRoleNames.length; i++) {
-      var userRoleName = userRoleNames[i];
-      var userRole = this.getRole(userRoleName);
-      if (!userRole) return false;
-      if (this.checkRole(userRoleName, action)) return true;
-    }
-    return false;
+    return userRoleNames.every(userRoleName => this.getRole(userRoleName)) && 
+           userRoleNames.some(userRoleName => this.checkRole(userRoleName, action));
+
   }
 
   _log(message) {
