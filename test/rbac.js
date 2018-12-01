@@ -105,19 +105,24 @@ describe('rbac', () => {
       rbac.rmRole('role1');
       expect(Object.keys(rbac._roles)).to.have.length(1);
     });
-    it('should remove the users with this role', () => {
+    it('should remove the user if the user no longer has any roles', () => {
       rbac._roles['role'] = new Role();
       rbac._users['user'] = new User({
         name: 'user',
         roles: ['role']
       });
+      rbac.rmRole('role');
+      expect(Object.keys(rbac._users)).to.have.length(0);
+      expect(rbac._users['user']).to.be.undefined;
+    })
+    it('should do nothing to the user if the user does not have the role', () => {
+      rbac._roles['role'] = new Role();
       rbac._users['nope'] = new User({
         name: 'nope',
         roles: ['nope']
       })
       rbac.rmRole('role');
-      expect(Object.keys(rbac._users)).to.have.length(1);
-      expect(rbac._users['user']).to.be.undefined;
+
       expect(rbac._users['nope'].roles).to.be.an('array');
       expect(rbac._users['nope'].roles).to.have.length(1);
       expect(rbac._users['nope'].roles[0]).to.equal('nope');
@@ -224,13 +229,28 @@ describe('rbac', () => {
         name: 'user',
         roles: ['role']  
       });
-      expect(() => rbac.addUser('user', 'role')).to.throw();
+      expect(() => rbac.addUser('user', ['role'])).to.throw();
     });
+    it('should throw err if user is undefined', () => {
+      expect(() => rbac.addUser(undefined, ['role'])).to.throw();
+    })
+    it('should throw err if user is empty', () => {
+      expect(() => rbac.addUser('', ['role'])).to.throw();
+    })
+    it('should throw err if role is undefined', () => {
+      expect(() => rbac.addUser('user', undefined)).to.throw();
+    })
+    it('should throw err if role is empty', () => {
+      expect(() => rbac.addUser('user', [])).to.throw();
+    })
     it('should throw err if the role doesnt exist', () => {
-      expect(() => rbac.addUser('user', 'nope')).to.throw();
+      expect(() => rbac.addUser('user', ['nope'])).to.throw();
     });
+    it('should throw err if there are duplicate roles', () => {
+      expect(() => rbac.addUser('user', ['role', 'role'])).to.throw();
+    })
     it('should throw err if the userName doesnt match schema', () => {
-      expect(() => rbac.addUser(234, 'role')).to.throw();
+      expect(() => rbac.addUser(234, ['role'])).to.throw();
     });
     it('should add the user', () => {
       rbac.addUser('user', ['role']);
@@ -395,6 +415,36 @@ describe('rbac', () => {
         can: [ 'action' ]
       });
       expect(rbac.check('user', 'action')).to.be.true;
+    });
+    it('should ret false if user has multiple roles and none have access to action', () => {
+      rbac._roles['role1'] = new Role({
+        can: ['action1', 'action2'],
+        inherits: []
+      });
+      rbac._roles['role2'] = new Role({
+        can: ['action1', 'action2'],
+        inherits: []
+      });
+      rbac._users['user'] = new User({
+        name: 'user',
+        roles: ['role1', 'role2']
+      });
+      expect(rbac.check('user', 'nope')).to.be.false;
+    });
+    it('should ret true if user has multiple roles and some have access to action', () => {
+      rbac._roles['role1'] = new Role({
+        can: [],
+        inherits: []
+      });
+      rbac._roles['role2'] = new Role({
+        can: ['action1'],
+        inherits: []
+      });
+      rbac._users['user'] = new User({
+        name: 'user',
+        roles: ['role1', 'role2']
+      });
+      expect(rbac.check('user', 'action1')).to.be.true;
     });
     it('should ret true if its not enabled', () => {
       rbac._enabled = false;
