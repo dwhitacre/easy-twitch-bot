@@ -169,8 +169,7 @@ class RBAC {
 
     const userRoleNames = user ? user.roles : this._defaultRole;
 
-    return userRoleNames.every(userRoleName => this.getRole(userRoleName)) && 
-           userRoleNames.some(userRoleName => this.checkRole(userRoleName, action));
+    return userRoleNames.some(userRoleName => this.getRole(userRoleName) && this.checkRole(userRoleName, action));
 
   }
 
