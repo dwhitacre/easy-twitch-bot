@@ -8,6 +8,31 @@ const log = require('../log');
 
 const from = 'storage_elasticsearch';
 
+/*
+ * This class is built to support two different use cases.
+ *  1. A persistent CRUD storagae option, like memory.
+ *  2. A push and read all model for logging.
+ *
+ * In the first use case, we want to ensure we are only using a single
+ * index with forced refreshes, so we are actually able to do consistent CRUD actions.
+ * Otherwise, we can't garuantee that we are updating, indexing, or deleting
+ * correctly, especially more so when attempting to do a lot of those actions
+ * asynchrously. Elasticsearch isn't transactional and only makes data available
+ * on an index refresh rate. Thus in this scenario, we force refresh the index,
+ * whenever we want to check if data exists or retrieve data from it, in order to
+ * maintain some level consistency.
+ *
+ * In the second use case, we know we are going to have a lot of data, so
+ * being able to rollover the index and have an alias read all of these
+ * multiple indices is important. However, in doing so, we cant access items easily
+ * by id, and if we wanted to we would be forced to refresh a lot of indices..
+ * This would cause instability in elasticsearch and since for this use case
+ * we really dont care to access documents by id, or update, or delete by id, we
+ * accept the inconsistency here in those actions as 99% of the time we'll just be pushing.  
+ *
+ * All in all, for the first model you're probably better off using a different data store.
+ */
+
 class Elasticsearch {
   constructor(options) {
     const { error, value } = Joi.validate(options, schema);
@@ -24,6 +49,7 @@ class Elasticsearch {
       max_docs: value.rolloverMaxDocs,
       max_size: value.rolloverMaxSize
     };
+    this._rolloverEnabled = value.rolloverEnabled;
     this._additionalMappings = value.additionalMappings;
     this._logEnabled = value.logEnabled;
 
@@ -123,25 +149,28 @@ class Elasticsearch {
     return true;
   }
 
-  async add(itemId, item) {
-    if (typeof itemId === 'undefined') itemId = uniqid();
-
-    const has = await this.has(itemId);
-    if (has) await this.rm(itemId);
-
-    const rollover = await this._client.indices.rollover({
-      alias: this._writeAlias,
-      body: {
-        conditions: {
-          ...this._rollover
+  async add(itemId, item) {    
+    if (this._rolloverEnabled) {
+      itemId = undefined;
+      const rollover = await this._client.indices.rollover({
+        alias: this._writeAlias,
+        body: {
+          conditions: {
+            ...this._rollover
+          }
         }
-      }
-    });
-
-    if (rollover.rolled_over) {
-      this._log({
-        message: `Rolled over write alias: ${this._writeAlias}`
       });
+
+      if (rollover.rolled_over) {
+        this._log({
+          message: `Rolled over write alias: ${this._writeAlias}`
+        });
+      }
+    } else {
+      if (typeof itemId === 'undefined') itemId = uniqid();
+
+      const has = await this.has(itemId);
+      if (has) await this.rm(itemId);
     }
 
     const itemAdded = await this._client.create({
@@ -155,7 +184,7 @@ class Elasticsearch {
       message: `added item ${itemId} to elasticsearch store`
     });
 
-    return itemId;
+    return itemAdded._id;
   }
 
   async has(itemId) {
@@ -163,19 +192,57 @@ class Elasticsearch {
     return !!item;
   }
 
+  async _getWithIndex(itemId) {
+    let rawGet;
+    try {
+      rawGet = await this._client.search({
+        index: this._readAlias,
+        type: this._type,
+        body: {
+          query: {
+            term: {
+              '_id': itemId
+            }
+          }
+        }
+      });
+    } catch (e) {
+      rawGet = {
+        hits: {
+          total: 0
+        }
+      };
+    }
+
+    if (rawGet.hits.total <= 0) return undefined;
+
+    return {
+      index: rawGet.hits.hits[0]._index,
+      item: rawGet.hits.hits[0]._source
+    };
+  }
+
   async get(itemId) {
+    if (this._rolloverEnabled) {
+      const getWithIndex = await this._getWithIndex(itemId);
+      if (!getWithIndex) return undefined;
+      return getWithIndex.item;
+    }
+
     let rawGet;
     try {
       rawGet = await this._client.get({
         index: this._readAlias,
         type: this._type,
-        id: itemId
+        id: itemId,
+        refresh: true
       });
     } catch (e) {
       rawGet = {
         _source: undefined
       };
     }
+
     return rawGet._source;
   }
 
@@ -183,8 +250,14 @@ class Elasticsearch {
     const has = await this.has(itemId);
     if (!has) return undefined;
 
+    let index = this._readAlias;
+    if (this._rolloverEnabled) {
+      const getWithIndex = await this._getWithIndex(itemId);
+      index = getWithIndex.index;
+    }
+
     const deleted = await this._client.delete({
-      index: this._readAlias,
+      index,
       type: this._type,
       id: itemId
     });
@@ -202,12 +275,18 @@ class Elasticsearch {
     }
   }
 
-  async edit(itemId, item) {
+  async edit(itemId, item = {}) {
     const has = await this.has(itemId);
     if (!has) return undefined;
 
+    let index = this._readAlias;
+    if (this._rolloverEnabled) {
+      const getWithIndex = await this._getWithIndex(itemId);
+      index = getWithIndex.index;
+    }
+
     const updated = await this._client.update({
-      index: this._readAlias,
+      index,
       type: this._type,
       id: itemId,
       body: {

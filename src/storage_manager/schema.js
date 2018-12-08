@@ -18,6 +18,7 @@ const apiVersion = Joi.string().default('6.4');
 const rolloverMaxDocs = Joi.number().min(1).max(1000000000).default(1000000);
 const rolloverMaxSize = Joi.string().default('5gb');
 const rolloverMaxAge = Joi.string().default('7d');
+const rolloverEnabled = Joi.boolean().default(false);
 const additionalMappings = Joi.object().default({});
 
 const elasticsearch = Joi.object().keys({
@@ -27,6 +28,7 @@ const elasticsearch = Joi.object().keys({
   rolloverMaxAge,
   rolloverMaxSize,
   rolloverMaxDocs,
+  rolloverEnabled,
   additionalMappings,
   logEnabled
 }).default();

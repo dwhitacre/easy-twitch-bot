@@ -31,6 +31,17 @@ let getStub = sinon.stub().resolves({
     field: 'field'
   }
 });
+let searchStub = sinon.stub().resolves({
+  hits: {
+    total: 1,
+    hits: [{
+      _index: 'index',
+      _source: {
+        field: 'field'
+      }
+    }]
+  }
+});
 let deleteStub = sinon.stub().resolves({
   result: 'deleted'
 });
@@ -43,6 +54,7 @@ class esClientStub {
     this.indices = indicesStub;
     this.create = createStub;
     this.get = getStub;
+    this.search = searchStub;
     this.delete = deleteStub;
     this.update = updateStub;
   }
@@ -335,10 +347,23 @@ describe('storage_manager', () => {
       indicesStub.delete.resetHistory();
       indicesStub.deleteTemplate.resetHistory();
       indicesStub.rollover.resetHistory();
-      createStub.resolves(true).resetHistory();
+      createStub.resolves({
+        _id: 'itemId'
+      }).resetHistory();
       getStub.resolves({
         _source: {
           field: 'field'
+        }
+      }).resetHistory();
+      searchStub.resolves({
+        hits: {
+          total: 1,
+          hits: [{
+            _index: 'index',
+            _source: {
+              field: 'field'
+            }
+          }]
         }
       }).resetHistory();
       deleteStub.resolves({
@@ -401,10 +426,15 @@ describe('storage_manager', () => {
       });
     });
     describe('.add', () => {
-      it('should ret item id and rollover the index', async () => {
+      it('should ret item id and call rollover if rollover enabled', async () => {
+        es._rolloverEnabled = true;
+        createStub.resolves({
+          _id: 'abc123'
+        });
         const itemId = await es.add('itemId', {});
-        expect(itemId).to.equal('itemId');
-        expect(indicesStub.rollover.calledOnce).to.be.true;
+        expect(itemId).to.equal('abc123')
+        expect(indicesRolloverStub.calledOnce).to.be.true;
+        expect(createStub.calledOnce).to.be.true;
       });
       it('should ret item id and add the item', async () => {
         const itemId = await es.add('itemId', {});
@@ -420,12 +450,22 @@ describe('storage_manager', () => {
     });
     describe('.has', () => {
       it('should ret true if item exists', async () => {
-        await es.add('itemId', {});
         const has = await es.has('itemId');
         expect(has).to.be.true;
       });
       it('should ret false if item dne', async () => {
         getStub.throws();
+        const has = await es.has('itemId');
+        expect(has).to.be.false;
+      });
+      it('should ret true if item exists and rollover enabled', async () => {
+        es._rolloverEnabled = true;
+        const has = await es.has('itemId');
+        expect(has).to.be.true;
+      });
+      it('should ret false if item dne and rollover enabled', async () => {
+        es._rolloverEnabled = true;
+        searchStub.throws();
         const has = await es.has('itemId');
         expect(has).to.be.false;
       });
@@ -441,6 +481,19 @@ describe('storage_manager', () => {
         const get = await es.get('itemId');
         expect(get).to.be.undefined;
         expect(getStub.calledOnce).to.be.true;
+      });
+      it('should ret the item if it exists and rollover enabled', async () => {
+        es._rolloverEnabled = true;
+        const get = await es.get('itemId');
+        expect(get).to.deep.equal({ field: 'field' });
+        expect(searchStub.calledOnce).to.be.true;
+      });
+      it('should ret undefined if item dne and rollover enabled', async () => {
+        es._rolloverEnabled = true;
+        searchStub.throws();
+        const get = await es.get('itemId');
+        expect(get).to.be.undefined;
+        expect(searchStub.calledOnce).to.be.true;
       });
     });
     describe('.rm', () => {
@@ -463,6 +516,13 @@ describe('storage_manager', () => {
         expect(deleted).to.equal('itemId');
         expect(deleteStub.calledOnce).to.be.true;
       });
+      it('should use the index from get with index if rollover enabled', async () => {
+        es._rolloverEnabled = true;
+        const deleted = await es.rm('itemId');
+        expect(deleted).to.equal('itemId');
+        expect(deleteStub.calledOnce).to.be.true;
+        expect(searchStub.called).to.be.true;
+      });
     });
     describe('.edit', () => {
       it('should ret undefined if the item dne', async () => {
@@ -483,6 +543,13 @@ describe('storage_manager', () => {
         const edited = await es.edit('itemId', {});
         expect(edited).to.equal('itemId');
         expect(updateStub.calledOnce).to.be.true;
+      });
+      it('should use the index from get with index if rollover enabled', async () => {
+        es._rolloverEnabled = true;
+        const edited = await es.edit('itemId', {});
+        expect(edited).to.equal('itemId');
+        expect(updateStub.calledOnce).to.be.true;
+        expect(searchStub.called).to.be.true;
       });
     });
   });
