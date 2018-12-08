@@ -465,7 +465,7 @@ Returns whether or not the role or any roles it inherits `can` do the action.
 Add a new user with the given role.
 
 - `userName` - string, the name of the user to add
-- `roleName` - string, the name of the role to give them
+- `roleName` - array or string, the name of the role to give them
 
 `getUser(userNameOrToken)`
 
@@ -484,7 +484,7 @@ Removes the user for this name.
 Edit the role for a specific user.
 
 - `userName` - string, the users name
-- `roleName` - string, the role name
+- `roleName` - array or string, the role name
 
 `clear()`
 
