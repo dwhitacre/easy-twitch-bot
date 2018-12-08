@@ -1,8 +1,58 @@
 const { expect } = require('chai');
 const sinon = require('sinon');
+const proxyquire = require('proxyquire');
 
 const StorageManager = require('../src/storage_manager/storage_manager');
 const Memory = require('../src/storage_manager/memory');
+const ElasticsearchClass = require('../src/storage_manager/elasticsearch');
+
+const indicesExistsTemplateStub = sinon.stub().resolves(true);
+const indicesPutTemplateStub = sinon.stub().resolves(true);
+const indicesExistsAliasStub = sinon.stub().resolves(true);
+const indicesCreateStub = sinon.stub().resolves(true);
+const indicesDeleteStub = sinon.stub().resolves(true);
+const indicesDeleteTemplateStub = sinon.stub().resolves(true);
+const indicesRolloverStub = sinon.stub().resolves({
+  rolled_over: true
+});
+const indicesStub = {
+  existsTemplate: indicesExistsTemplateStub,
+  putTemplate: indicesPutTemplateStub,
+  existsAlias: indicesExistsAliasStub,
+  create: indicesCreateStub,
+  delete: indicesDeleteStub,
+  deleteTemplate: indicesDeleteTemplateStub,
+  rollover: indicesRolloverStub
+};
+
+let createStub = sinon.stub().resolves(true);
+let getStub = sinon.stub().resolves({
+  _source: {
+    field: 'field'
+  }
+});
+let deleteStub = sinon.stub().resolves({
+  result: 'deleted'
+});
+let updateStub = sinon.stub().resolves({
+  result: 'updated'
+});
+
+class esClientStub {
+  constructor() {
+    this.indices = indicesStub;
+    this.create = createStub;
+    this.get = getStub;
+    this.delete = deleteStub;
+    this.update = updateStub;
+  }
+}
+
+const Elasticsearch = proxyquire('../src/storage_manager/elasticsearch', {
+  'elasticsearch': {
+    Client: esClientStub
+  }
+});
 
 describe('storage_manager', () => {
   describe('.constructor', () => {
@@ -68,10 +118,15 @@ describe('storage_manager', () => {
       expect(sm._storages['storage']).to.exist;
       expect(sm._storages['storage']).to.be.an.instanceof(Memory);
     });
-    it('should create storage with provided storage type', () => {
+    it('should create storage with provided memory storage type', () => {
       sm.add('storage', 'memory');
       expect(sm._storages['storage']).to.exist;
       expect(sm._storages['storage']).to.be.an.instanceof(Memory);
+    });
+    it('should create storage with provided elasticsearch storage type', () => {
+      sm.add('storage', 'elasticsearch');
+      expect(sm._storages['storage']).to.exist;
+      expect(sm._storages['storage']).to.be.an.instanceof(ElasticsearchClass);
     });
     it('should do nothing if default storage type dne', () => {
       sm._defaultStorageType = 'nope';
@@ -81,6 +136,14 @@ describe('storage_manager', () => {
     it('should do nothing if provided storage type dne', () => {
       sm.add('storage', 'nope');
       expect(sm._storages['storage']).to.be.undefined;
+    });
+    it('should create storage with provided unknown storage type if storage class is provided', () => {
+      class UnknownStorage {
+        constructor() {}
+      }
+      sm.add('storage', 'unknown', {}, UnknownStorage);
+      expect(sm._storages['storage']).to.exist;
+      expect(sm._storages['storage']).to.be.an.instanceof(UnknownStorage);
     });
     it('should be able to add memory storage', () => {
       sm.add('storage', 'memory', {});
@@ -250,6 +313,176 @@ describe('storage_manager', () => {
         const ret = await m.edit('itemId', { edited: 1 });
         expect(ret).to.equal('itemId');
         expect(m._memory['itemId']['edited']).to.equal(1);
+      });
+    });
+  });
+  describe('elasticsearch', () => {
+    let es;
+    beforeEach(() => {
+      indicesStub.existsTemplate.resolves(true);
+      indicesStub.putTemplate.resolves(true);
+      indicesStub.existsAlias.resolves(true);
+      indicesStub.create.resolves(true);
+      indicesStub.delete.resolves(true);
+      indicesStub.deleteTemplate.resolves(true);
+      indicesStub.rollover.resolves({
+        rolled_over: true
+      });
+      indicesStub.existsTemplate.resetHistory();
+      indicesStub.putTemplate.resetHistory();
+      indicesStub.existsAlias.resetHistory();
+      indicesStub.create.resetHistory();
+      indicesStub.delete.resetHistory();
+      indicesStub.deleteTemplate.resetHistory();
+      indicesStub.rollover.resetHistory();
+      createStub.resolves(true).resetHistory();
+      getStub.resolves({
+        _source: {
+          field: 'field'
+        }
+      }).resetHistory();
+      deleteStub.resolves({
+        result: 'deleted'
+      }).resetHistory();
+      updateStub.resolves({
+        result: 'updated'
+      }).resetHistory();
+      es = new Elasticsearch({
+        logEnabled: false
+      });
+      es._client = new esClientStub();
+    });
+    describe('.constructor', () => {
+      it('should throw err if schema fails', () => {
+        expect(() => new Elasticsearch({
+          logEnabled: 123
+        })).to.throw();
+      });
+      it('should create an elasticsearch store', () => {
+        const esC = new Elasticsearch();
+        expect(esC._index).to.exist;
+        expect(esC._type).to.exist;
+        expect(esC._readAlias).to.exist;
+        expect(esC._writeAlias).to.exist;
+        expect(esC._host).to.exist;
+        expect(esC._apiVersion).to.exist;
+        expect(esC._rollover).to.exist;
+        expect(esC._additionalMappings).to.exist;
+        expect(esC._logEnabled).to.exist;
+      });
+    });
+    describe('.init', () => {
+      it('should ret true and create the index template', async () => {
+        indicesStub.existsTemplate.resolves(false);
+        await es.init();
+        expect(indicesStub.existsTemplate.calledOnce).to.be.true;
+        expect(indicesStub.putTemplate.calledOnce).to.be.true;
+      });
+      it('should ret true and create the write alias', async () => {
+        indicesStub.existsAlias.resolves(false);
+        await es.init();
+        expect(indicesStub.existsAlias.calledOnce).to.be.true;
+        expect(indicesStub.create.calledOnce).to.be.true;
+      });
+      it('should ret true and do nothing id the index template and write alias already exist', async () => {
+        await es.init();
+        expect(indicesStub.putTemplate.calledOnce).to.be.false;
+        expect(indicesStub.create.calledOnce).to.be.false;
+      });
+    });
+    describe('.destroy', () => {
+      it('should ret true and delete the indices', async () => {
+        await es.destroy();
+        expect(indicesStub.delete.calledOnce).to.be.true;
+      });
+      it('should ret true and delete the template', async () => {
+        await es.destroy();
+        expect(indicesStub.deleteTemplate.calledOnce).to.be.true;
+      });
+    });
+    describe('.add', () => {
+      it('should ret item id and rollover the index', async () => {
+        const itemId = await es.add('itemId', {});
+        expect(itemId).to.equal('itemId');
+        expect(indicesStub.rollover.calledOnce).to.be.true;
+      });
+      it('should ret item id and add the item', async () => {
+        const itemId = await es.add('itemId', {});
+        expect(itemId).to.equal('itemId');
+        expect(createStub.calledOnce).to.be.true;
+      });
+      it('should ret item id and overwrite the item if it already exists', async () => {
+        await es.add('itemId', { wow: 'wow' });
+        const itemId = await es.add('itemId', {});
+        expect(itemId).to.equal('itemId');
+        expect(createStub.calledTwice).to.be.true;
+      });
+    });
+    describe('.has', () => {
+      it('should ret true if item exists', async () => {
+        await es.add('itemId', {});
+        const has = await es.has('itemId');
+        expect(has).to.be.true;
+      });
+      it('should ret false if item dne', async () => {
+        getStub.throws();
+        const has = await es.has('itemId');
+        expect(has).to.be.false;
+      });
+    });
+    describe('.get', () => {
+      it('should ret the item if it exists', async () => {
+        const get = await es.get('itemId');
+        expect(get).to.deep.equal({ field: 'field' });
+        expect(getStub.calledOnce).to.be.true;
+      });
+      it('should ret undefined if item dne', async () => {
+        getStub.throws();
+        const get = await es.get('itemId');
+        expect(get).to.be.undefined;
+        expect(getStub.calledOnce).to.be.true;
+      });
+    });
+    describe('.rm', () => {
+      it('should ret undefined if the item fails to delete', async () => {
+        deleteStub.resolves({
+          result: 'nah'
+        });
+        const deleted = await es.rm('itemId');
+        expect(deleted).to.be.undefined;
+        expect(deleteStub.calledOnce).to.be.true;
+      });
+      it('should ret undefined if item dne', async () => {
+        getStub.throws();
+        const deleted = await es.rm('itemId');
+        expect(deleted).to.be.undefined;
+        expect(deleteStub.notCalled).to.be.true;
+      });
+      it('should ret item id and delete the item', async () => {
+        const deleted = await es.rm('itemId');
+        expect(deleted).to.equal('itemId');
+        expect(deleteStub.calledOnce).to.be.true;
+      });
+    });
+    describe('.edit', () => {
+      it('should ret undefined if the item dne', async () => {
+        getStub.throws();
+        const edited = await es.edit('itemId', {});
+        expect(edited).to.equal(undefined);
+        expect(updateStub.notCalled).to.be.true;
+      });
+      it('should ret item id and edit the item if it exists', async () => {
+        const edited = await es.edit('itemId', {});
+        expect(edited).to.equal('itemId');
+        expect(updateStub.calledOnce).to.be.true;
+      });
+      it('should ret item id if the item exists but there was nothing to update', async () => {
+        updateStub.resolves({
+          result: 'nah'
+        });
+        const edited = await es.edit('itemId', {});
+        expect(edited).to.equal('itemId');
+        expect(updateStub.calledOnce).to.be.true;
       });
     });
   });
