@@ -13,6 +13,8 @@ class Memory {
     if (error) throw error;
 
     this._logEnabled = value.logEnabled;
+    
+    this._id = uuid.v1();
 
     this._memory;
   }

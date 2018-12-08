@@ -3,6 +3,7 @@ const uuid = require('uuid');
 
 const { storageManager: schema } = require('./schema');
 const Memory = require('./memory');
+const Elasticsearch = require('./elasticsearch');
 const log = require('../log');
 
 const from = 'storage_manager';
@@ -44,7 +45,7 @@ class StorageManager {
     };
   }
 
-  add(storageName, storageType = this._defaultStorageType, storageDef) {
+  add(storageName, storageType = this._defaultStorageType, storageDef = {}, StorageClass) {
     if (typeof storageName === 'undefined') throw new Error('storageName must be defined');
 
     if (storageType === 'memory') {
@@ -55,6 +56,31 @@ class StorageManager {
         storageDef
       });
       this._storages[storageName] = new Memory(storageDef);
+    } else if (storageType === 'elasticsearch') {
+      this._log({
+        message: `Added storage '${storageName}' of type '${storageType}'`,
+        storageName,
+        storageType,
+        storageDef
+      });
+      this._storages[storageName] = new Elasticsearch(storageDef);
+    } else {
+      if (typeof StorageClass === 'undefined') {
+        this._log({
+          message: `Didnt add storage '${storageName}' of unrecognized storage type: ${storageType} because StorageClass was undefined`,
+          storageName,
+          storageType,
+          storageDef
+        });
+      } else {
+        this._log({
+          message: `Added storage '${storageName}' of unrecognized storage type: ${storageType}`,
+          storageName,
+          storageType,
+          storageDef
+        });
+        this._storages[storageName] = new StorageClass(storageDef);
+      }
     }
   }
 

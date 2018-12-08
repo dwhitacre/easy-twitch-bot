@@ -523,13 +523,14 @@ Sets the settings for storageManager.
 
 Returns the current state. ie `id`
 
-`add(storageName, storageType, storageDef)`
+`add(storageName, storageType, storageDef, StorageClass)`
 
-Adds a storage of the specific type from the definition. This does not init it, just adds it to the manager.
+Adds a storage of the specific type from the definition. This does not init it, just adds it to the manager. Can be used to add external storage classes.
 
 - `storageName` - string, uniq storage name
 - `storageType` - string, defaults to what is set in config
-- `storageDef` - object, object for storage creation if needed
+- `storageDef` - object, object for storage creation if needed, defaults to `{}`
+- `StorageClass` - class, if storage type if unknown and a class is defined here, a new instance of this will be added to the storage manager. see `storage` section below for more info on best practice impl of said class
 
 `get(storageName)`
 
@@ -618,3 +619,11 @@ If you wish to contribute please contact me first. The best way to contact me is
 `npm start` runs `example/watch.js` watching the src code for changes. It just starts up a basic example of the bot. Must set `TWITCH_USERNAME` and `TWITCH_TOKEN` env vars for the bot to use.
 
 `npm run test` to run the tests.
+
+#### Elasticsearch
+
+To test elasticsearch integrations you need to setup elasticsearch locally or remotely. 
+
+For local setups, Id just clone the [kibana](https://github.com/elastic/kibana) github and run the dev ES they have there as well as kibana. The default ES version is like 6.4 here, so id checkout that version of kibana as well.
+
+If you run it locally then you can just run with the defaults setup in the schema, just set the env var `TEST_ELASTICSEARCH` to `true` to run the example with the persistent storage options.

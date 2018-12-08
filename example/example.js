@@ -24,7 +24,10 @@ const easyBot = new EasyTwitchBot({
 easyBot.init();
 easyBot.rbac.addRole('admin', {
   can: ['echo'],
-  inherits: ['default']
+  inherits: ['es', 'default']
+});
+easyBot.rbac.addRole('es', {
+  can: ['esmoon', 'esearth', 'esdan']
 });
 easyBot.rbac.addRole('default', {
   can: [ 'e', 'devmoon', 'devearth', 'devdan' ]
@@ -106,5 +109,91 @@ moonStorage.init()
       }
     });
   });
+
+if (process.env.TEST_ELASTICSEARCH === 'true' || process.env.TEST_ELASTICSEARCH === true) {
+  easyBot.storageManager.add('esStorage', 'elasticsearch', {
+    index: 'easy-bot-test'
+  });
+  const esStorage = easyBot.storageManager.get('esStorage');
+  esStorage.init()
+    .then(async (success) => {
+      if (!success) throw new Error('could not init esStorage');
+      const itemId = await esStorage.add(undefined, {field: 'wow'});
+      await esStorage.has(itemId);
+      await esStorage.has('nooo');
+      await esStorage.rm('noo');
+      await esStorage.edit(itemId, {
+        field2: 'field2'
+      });
+      await esStorage.edit('nooo', {
+        field2: 'field2'
+      });
+      await esStorage.add(itemId, {
+        field3: 'field3'
+      });
+      await esStorage.rm(itemId);
+
+
+      await esStorage.add('members', { members: []});
+
+      easyBot.addRule({
+        name: 'esmoon',
+        handler: async (params) => {
+          const bot = params.bot;
+          const storageManager = bot.storageManager;
+          const eS = storageManager.get('esStorage');
+          
+          let { members: esMembers } = await eS.get('members');
+
+          const index = esMembers.indexOf(params.username);
+          if (index > -1) {
+            return `@${params.username}, you are already on the moon :)`;
+          }
+
+          if (!params.username) return 'need to have a username to join the moon';
+
+          esMembers.push(params.username);
+          const success = await eS.edit('members', { members: esMembers });
+          
+          if (!success) return `@${params.username} failed to make it to the moon! Try again!`;
+          return `@${params.username}, welcome to the moon!`;
+        }
+      });
+      easyBot.addRule({
+        name: 'esearth',
+        handler: async (params) => {
+          const bot = params.bot;
+          const storageManager = bot.storageManager;
+          const eS = storageManager.get('esStorage');
+
+          const { members: esMembers } = await eS.get('members');
+          const index = esMembers.indexOf(params.username);
+          if (index > -1) {
+            esMembers.splice(index, 1);
+            const success = await eS.edit('members', { members: esMembers });
+          
+            if (!success) return `@${params.username} failed to leave the moon! Try again!`;
+            return `@${params.username}, came back down to earth :(`;
+          }
+
+          if (!params.username) return 'need to have a username to be on earth';
+
+          return `@${params.username}, you are already on the earth...`;
+        }
+      });
+      easyBot.addRule({
+        name: 'esdan',
+        handler: async (params) => {
+          const bot = params.bot;
+          const storageManager = bot.storageManager;
+          const eS = storageManager.get('esStorage');
+
+          const { members: esMembers } = await eS.get('members');
+
+          return `Heres the current moon party: ${esMembers.join(', ')}`;
+        }
+      });
+    });
+}
 
 easyBot.start();
